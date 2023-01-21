@@ -1,0 +1,78 @@
+service_name: &service_name collections-client
+service_port: &service_port 8000
+domain: &domain collections-api.trafficwave.kz
+
+env:
+  # COLLECTRION_CORE
+  COLLECTIONS_CORE_URL: https://collections-api.trafficwave.kz/api/v1/
+  COLLECTION_CORE_TOKEN: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjF9.GKaJPl01FH0OwLterpJ3CfDkVcn3VisLq2UcR5lc480
+  # 1C
+  URL_1C: http://rest1.fdc.kz/mfo1/odata/standard.odata/
+  USERNAME_1C: ws
+  PASSWORD_1C: Fjk32@#$@od83#
+  # RABBITMQ
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/celery
+
+resources:
+  limits:
+    cpu: 1
+    memory: "2048Mi"
+  requests:
+    cpu: 0.2
+    memory: "256Mi"
+
+replicaCount: 1
+
+rollingUpdate:
+  maxSurge: 1
+  maxUnavailable: 0
+
+nameOverride: *service_name
+fullnameOverride: *service_name
+
+ingress:
+  enabled: false
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  hosts:
+    - host: *domain
+      paths:
+        - /
+
+service:
+  type: ClusterIP
+  port: *service_port
+  targetPort: *service_port
+
+ports:
+  - name: https
+    port: *service_port
+    targetPort: *service_port
+    protocol: TCP
+
+livenessProbe:
+  exec:
+    command:
+      - "sh"
+      - "-c"
+      - "ls /app/receive.py"
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  timeoutSeconds: 30
+readinessProbe:
+  exec:
+    command:
+      - "sh"
+      - "-c"
+      - "ls /app/receive.py"
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  timeoutSeconds: 30
+
+imagePullSecrets:
+  - name: myregistrykey
+
+cronjobs: []
+# example command

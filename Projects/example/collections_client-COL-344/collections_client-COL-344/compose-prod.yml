@@ -1,0 +1,24 @@
+version: '3.7'
+
+x-environments: &environments
+  # COLLECTRION_CORE
+  COLLECTIONS_CORE_URL: http://api:8000/api/v1/
+  COLLECTION_CORE_TOKEN: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjF9.1dBndfVChKu6zjgeklIm19_JcXt5UMJqehpdIvSdU8I
+  # 1C
+  URL_1C: http://rest1.fdc_odata.kz/mfo1/odata/standard.odata/
+  USERNAME_1C: ws
+  PASSWORD_1C: Fjk32@#$$@od83#
+
+services:
+  client-api:
+    image: $CI_REGISTRY_IMAGE:$TAG
+    environment:
+      <<: *environments
+    networks:
+      - traefik_public
+      - default
+
+networks:
+  traefik_public:
+    # Allow setting it to false for testing
+    external: ${TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL-true}

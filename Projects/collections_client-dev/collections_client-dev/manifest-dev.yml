@@ -1,0 +1,19 @@
+namespaces:
+  collections-core:
+
+preconfiguredHelmRepos:
+  - projects
+
+appsTemplates:
+  default-chart: &default-chart
+    namespace: collections-core
+    enabled: true
+    chart: "projects/default-chart"
+    version: "0.2.5"
+
+apps:
+  collections-client:
+    <<: *default-chart
+    valuesFile: "k8s/ENVIRONMENT/client.yml"
+    set:
+      image.name: "IMAGE_TO_REPLACE:TAG"

@@ -1,0 +1,82 @@
+stages:
+  - sonarqube
+  - linter
+  - build
+  - deploy
+
+variables:
+  TAG: $CI_BUILD_REF_SLUG-$CI_PIPELINE_ID-$CI_COMMIT_SHORT_SHA
+
+sonarqube:
+  stage: sonarqube
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  tags:
+    - docker
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner -Dsonar.qualitygate.timeout=600 -X
+  allow_failure: true
+
+flake:
+  stage: linter
+  image: python:3.9-alpine3.14
+  tags:
+    - docker
+  before_script:
+    - pip install -q flake8
+  script:
+    - flake8
+
+docker-image:
+  stage: build
+  image: docker:18.06
+  tags:
+    - docker
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+    - docker build -t $CI_PROJECT_PATH .
+    - docker tag $CI_PROJECT_PATH $CI_REGISTRY_IMAGE
+    - docker tag $CI_PROJECT_PATH $CI_REGISTRY_IMAGE:$TAG
+    - docker push $CI_REGISTRY_IMAGE
+    - docker push $CI_REGISTRY_IMAGE:$TAG
+    - docker rmi $CI_PROJECT_PATH
+    - docker rmi $CI_REGISTRY_IMAGE
+    - docker rmi $CI_REGISTRY_IMAGE:$TAG
+
+k8s-deploy-dev:
+  image: gitlab.globerce.com:5050/docker-images/helmsman:3.6.2
+  stage: deploy
+  tags:
+    - docker
+  only:
+    - dev
+  script:
+    - sed -i "s@ENVIRONMENT@dev@g" manifest-dev.yml
+    - sed -i "s@IMAGE_TO_REPLACE:TAG@$CI_REGISTRY_IMAGE:$TAG@g" manifest-dev.yml
+    - mkdir -p ~/.kube
+    - echo ${KUBECONFIG_DEV}
+    - echo ${KUBECONFIG_DEV} | base64 -d > ~/.kube/config
+    - helm repo update
+    - helmsman -keep-untracked-releases -update-deps -apply -f manifest-dev.yml
+
+swarm-deploy-prod:
+  image: docker/compose:latest
+  stage: deploy
+  tags:
+    - collections-prod
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+  script:
+    - docker-compose -f compose-prod.yml pull
+    - docker stack deploy -c compose-prod.yml --with-registry-auth collections
+  when: manual
+  only:
+    - main

@@ -1,0 +1,2 @@
+redis~=4.3.3
+aioredis~=2.0.1
